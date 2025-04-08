@@ -11,11 +11,11 @@ from itertools import combinations
 
 local_folder = 'C:/Users/ktapp/Documents/Python/vanilla ensembles'
 
-state_list = ['FL', 'IL', 'MI', 'NC', 'NY', 'OH'] 
+state_list = ['FL', 'IL', 'MI', 'NC', 'NY', 'OH', 'WI'] 
 state_chamber_list = [(state, chamber) for state in state_list for chamber in ['congress', 'upper', 'lower']]
 
 base_list = ['base0', 'base1', 'base2', 'base3', 'base4']
-ensemble_list = ['pop_minus', 'pop_plus', 'ust', 'distpair', 'distpair_ust', 'county25', 'county50', 'county75', 'county100']
+ensemble_list = ['pop_minus', 'pop_plus', 'ust','distpair', 'distpair_ust', 'reversible', 'county25', 'county50', 'county75', 'county100']
 
 num_seats_dict = {
     ('FL', 'congress'): 28,
@@ -35,7 +35,11 @@ num_seats_dict = {
     ('NY', 'lower'): 150,
     ('OH', 'congress'): 15,
     ('OH', 'upper'): 33,
-    ('OH', 'lower'): 99}
+    ('OH', 'lower'): 99,
+    ('WI', 'congress'): 8,
+    ('WI', 'upper'): 33,
+    ('WI', 'lower'): 99
+    }
 
 with open('score_categories.json', 'r') as file: # Read in Alec's dictionary of caterorized scores.
     score_categories = json.load(file)
@@ -54,7 +58,7 @@ primary_score_dict = {
     'MMD black': "mmd_black",
     'MMD hispanic': "mmd_hispanic",
     'MMD coalition': "mmd_coalition",
-    'county_splits':"county_splits", 
+    'county splits':"county_splits", 
     'counties split':"counties_split"
 }
 
@@ -104,6 +108,7 @@ def fetch_score_array(state, chamber, ensemble_type, score):
         'ust' : f'T{pop0}_S{county0}_R0_Vcut-edges-ust',
         'distpair' : f'T{pop0}_S{county0}_R0_Vdistrict-pairs-rmst',
         'distpair_ust' : f'T{pop0}_S{county0}_R0_Vdistrict-pairs-ust',
+        'reversible' : f'T{pop0}_S{county0}_R0_Vreversible',
         'county25' : f'T{pop0}_S{0.25}_R0_V{type1}',
         'county50' : f'T{pop0}_S{0.5}_R0_V{type1}',
         'county75' : f'T{pop0}_S{0.75}_R0_V{type1}',
