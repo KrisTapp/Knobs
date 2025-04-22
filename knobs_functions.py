@@ -1,13 +1,16 @@
-# Code to fetch the score array for a given state, chamber, ensemble_type and score.
-# and also creates the lists of ensemble types, score, and state-chamber combinations.
+# This file contains the main functions used to compare and visualize ensembles and their scores.
 
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
-import json
 from itertools import combinations
+import json
+
+
+# Code to fetch the score array for a given state, chamber, ensemble_type and score.
+# and also creates the lists of ensemble types, score, and state-chamber combinations.
 
 local_folder = 'C:/Users/ktapp/Documents/Python/vanilla ensembles'
 
@@ -15,7 +18,27 @@ state_list = ['FL', 'IL', 'MI', 'NC', 'NY', 'OH', 'WI']
 state_chamber_list = [(state, chamber) for state in state_list for chamber in ['congress', 'upper', 'lower']]
 
 base_list = ['base0', 'base1', 'base2', 'base3', 'base4']
-ensemble_list = ['pop_minus', 'pop_plus', 'ust','distpair', 'distpair_ust', 'reversible', 'county25', 'county50', 'county75', 'county100']
+ensemble_list = ['pop_minus', 'pop_plus', 'distpair','ust', 'distpair_ust', 'reversible', 'county25', 'county50', 'county75', 'county100']
+
+#convert into LaTex notation in our paper
+ensemble_name_dict = {
+'base0': '$\RA_0$',
+'base1': '$\RA_1$',
+'base2': '$\RA_2$',
+'base3': '$\RA_3$',
+'base4': '$\RA_4$',
+'pop_minus': '$\popm$',
+'pop_plus': '$\popp$',
+'ust': '$\RC$',
+'distpair': '$\RB$',
+'distpair_ust': '$\RD$',
+'reversible': '\RevReCom',
+'county25': '$\C$',
+'county50': '$\CC$',
+'county75':'$\CCC$',
+'county100': '$\CCCC$'  
+}
+reverse_ensemble_name_dict = {v: k for k, v in ensemble_name_dict.items()}
 
 num_seats_dict = {
     ('FL', 'congress'): 28,
@@ -132,3 +155,89 @@ def fetch_score_array(state, chamber, ensemble_type, score):
     else:
         df = pd.read_csv(filename)
         return df[col_name].to_numpy()
+
+
+# statistical tests
+
+def t_test(a0,a1): # runs the t-test of the hypotheses that two arrays were drawn from distributions with the same means.
+    result = stats.ttest_ind(a0, a1, equal_var=False)
+    return result.statistic, result.pvalue # the statistic is positive if a0 has a larger mean than a1
+
+def ks_test(a0,a1): # runs the Kolmogorov-Smirnov test that the two arrays were drawn from the same distribution
+    result = stats.ks_2samp(a0, a1)
+    return result.statistic, result.pvalue, result.statistic_sign # the statistic_sign is positive if a1 has larger values than a0
+
+def gelman_rubin_rhat(a1, a2):
+    n = len(a1)
+    assert len(a2) == n, "Both chains must have the same length"
+
+    # Means and variances
+    mu1, mu2 = np.mean(a1), np.mean(a2)
+    s1_sq, s2_sq = np.var(a1, ddof=1), np.var(a2, ddof=1)
+
+    W = (s1_sq + s2_sq) / 2
+    B = n * ((mu1 - mu2)**2) / 2
+    V_hat = ((n - 1) / n) * W + (1 / n) * B
+    R_hat = np.sqrt(V_hat / W)
+
+    return R_hat
+
+# visualization functions
+
+def kde_plot(state, chamber, ensemble_list, score, average_lines = True, filename = None): # kde plot of any given list of ensembles
+    """
+    For the given state, chamber, and score, this plots one KDE for each ensembles in ensemble_list.
+    """
+    prop_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']  # Get the color cycle
+    for i, ensemble in enumerate(ensemble_list):
+        color = prop_cycle[i % len(prop_cycle)]  # Cycle through colors
+        a = fetch_score_array(state, chamber, ensemble, score)
+        sns.kdeplot(a, label=ensemble, color=color)
+        if average_lines:
+            plt.axvline(np.mean(a), linestyle='--', color=color)
+    plt.title(f'{state} {chamber} {score}')
+    plt.xlabel(score)
+    plt.ylabel('Density')
+    plt.legend()
+    if filename is not None:
+        plt.savefig(filename)
+    plt.show()
+
+def box_plot(state, chamber, ensemble_list, competitive_window = .05, filename = None):
+    """
+    For the given state and chamber, this superimposes ordered-seats-plots for the two ensembles in ensemble_list.
+    Each ensemble is colored differently.
+    The size of ensemble_list must be 2.
+    It only includes seats that are competitive for at least one of the ensembles.
+    (this means that the dem seat share is within competitive_window of 0.5 for at least one ensemble)
+    """
+    if len(ensemble_list) != 2:
+        raise ValueError('ensemble_list must have length 2')
+    X0 = fetch_score_array(state, chamber, ensemble_list[0], 'by_district')
+    X1 = fetch_score_array(state, chamber, ensemble_list[1], 'by_district')
+
+    seats_list = []
+    for i in range(1, X0.shape[1]+1):
+        if abs(np.mean(X0[:, i-1]) - 0.5) < competitive_window or abs(np.mean(X1[:, i-1]) - 0.5) < competitive_window:
+            seats_list.append(i)
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    for i in seats_list:
+        ax.boxplot(X0[:, i-1], positions=[i-.15], widths=0.3, patch_artist=True, 
+                    boxprops=dict(facecolor='lightblue', color='black'), 
+                    medianprops=dict(color='black'), 
+                    flierprops=dict(markerfacecolor='white', marker=''))
+        ax.boxplot(X1[:, i-1], positions=[i+0.15], widths=0.3, patch_artist=True, 
+                    boxprops=dict(facecolor='lightgreen', color='black'), 
+                    medianprops=dict(color='black'), 
+                    flierprops=dict(markerfacecolor='white', marker=''))
+    plt.xticks(np.arange(1, X0.shape[1]+1), np.arange(1, X0.shape[1]+1))
+    plt.axhline(y=0.5, color='red', linestyle='--')
+    plt.xlabel('Ordered Districts')
+    plt.ylabel('Democrat Vote Share')
+    plt.title(f'{state} {chamber}: Ordered Seats Plots for {ensemble_list[0]} and {ensemble_list[1]}')
+    plt.legend([plt.Line2D([0], [0], color='lightblue', lw=4), plt.Line2D([0], [0], color='lightgreen', lw=4)],
+               [ensemble_list[0], ensemble_list[1]], loc='upper left')
+    if filename is not None:
+        plt.savefig(filename)
+    plt.show()
