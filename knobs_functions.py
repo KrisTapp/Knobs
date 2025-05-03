@@ -203,7 +203,28 @@ def kde_plot(state, chamber, ensemble_list, score, average_lines = True, filenam
         plt.savefig(filename)
     plt.show()
 
-def box_plot(state, chamber, ensemble_list, competitive_window = .05, filename = None):
+def box_whisker_plot(state, chamber, ensemble_list, score, filename = None): # box plot of any given list of ensembles
+    """
+    For the given state, chamber, and score, this plots one box plot for each ensembles in ensemble_list.
+    """
+    data = pd.DataFrame(columns=['ensemble', 'score'])
+    for ensemble in ensemble_list:
+        a = fetch_score_array(state, chamber, ensemble, score)
+        data_for_a = pd.DataFrame({'ensemble': [ensemble] * len(a), 'score': a})
+        data = pd.concat([data, data_for_a], ignore_index=True)
+    sns.boxplot(data=data, x='ensemble', y='score', hue='ensemble', fliersize = 0)
+    plt.title(f"{state} {chamber}: {score} boxplots by ensemble type")
+    plt.xlabel("Ensemble")
+    plt.ylabel(score)
+    plt.xticks(rotation=45)
+    plt.grid(axis='y')
+    plt.tight_layout()
+
+    if filename is not None:
+        plt.savefig(filename)
+    plt.show()
+
+def ordered_seats_plot(state, chamber, ensemble_list, competitive_window = .05, filename = None):
     """
     For the given state and chamber, this superimposes ordered-seats-plots for the two ensembles in ensemble_list.
     Each ensemble is colored differently.
