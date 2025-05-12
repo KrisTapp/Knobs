@@ -7,7 +7,7 @@ import numpy as np
 import scipy.stats as stats
 from itertools import combinations
 import json
-
+import math
 
 # Code to fetch the score array for a given state, chamber, ensemble_type and score.
 # and also creates the lists of ensemble types, score, and state-chamber combinations.
@@ -32,7 +32,7 @@ ensemble_name_dict = {
 'ust': '$\RC$',
 'distpair': '$\RB$',
 'distpair_ust': '$\RD$',
-'reversible': '\RevReCom',
+'reversible': r'\makecell{Rev \\ ReCom}',
 'county25': '$\C$',
 'county50': '$\CC$',
 'county75':'$\CCC$',
@@ -64,6 +64,19 @@ num_seats_dict = {
     ('WI', 'lower'): 99
     }
 
+# Tally the Dem voteshare for each state
+state_to_dem_voteshare = dict()
+for state in state_list:
+    chamber = 'congress'
+    pop0 = '0.01'
+    county0 = '0.0'
+    type0 = 'cut-edges-rmst'
+    snipet = f'T{pop0}_S{county0}_R0_V{type0}'
+    filename = f'{local_folder}/{state}_{chamber}/{state}_{chamber}/{state}_{chamber}_{snipet}/{state}_{chamber}_{snipet}_partisan_scores.csv'
+    df = pd.read_csv(filename)
+    a = df['estimated_vote_pct'][0]
+    state_to_dem_voteshare[state] = a
+
 with open('score_categories.json', 'r') as file: # Read in Alec's dictionary of caterorized scores.
     score_categories = json.load(file)
 
@@ -80,13 +93,12 @@ primary_score_dict = {
     'average margin': "average_margin", 
     'MMD black': "mmd_black",
     'MMD hispanic': "mmd_hispanic",
-    'MMD coalition': "mmd_coalition",
     'county splits':"county_splits", 
     'counties split':"counties_split"
 }
 
 # List of primary scores and list of secondary scores
-primary_score_list = list(primary_score_dict.keys())
+primary_score_list = list(primary_score_dict.keys()) + ['MMD coalition']
 secondary_score_list = [score for ls in score_categories.values() for score in ls if score not in primary_score_dict.values()]
 
 # dictionary mapping each score from primary_score_list and secondary_score_list to info about the spreadsheet column where it is stored
@@ -106,7 +118,17 @@ def fetch_score_array(state, chamber, ensemble_type, score):
     If score == 'by_district', then it returns a 2D array containing,
     for each map in the ensemble, an ordered array recording the dem_portions of the districts of the map.
     """
-
+    if score[:3] == 'maj': # preface a partisan score with 'maj ' to make it with respect to the majority party
+        a = fetch_score_array(state, chamber, ensemble_type, score[4:])
+        if state_to_dem_voteshare[state] > 0.5:
+            return a
+        else:
+            return num_seats_dict[(state, chamber)] - a
+    if score == 'MMD coalition': # the total should include all three MMD scores
+        return (  fetch_score_array(state, chamber, ensemble_type, 'mmd_black')  
+                + fetch_score_array(state, chamber, ensemble_type, 'mmd_hispanic') 
+                + fetch_score_array(state, chamber, ensemble_type, 'mmd_coalition'))
+    
     if chamber == 'congress':
         pop0 = '0.01'
         pop_minus = '0.005'
@@ -224,6 +246,52 @@ def box_whisker_plot(state, chamber, ensemble_list, score, filename = None): # b
         plt.savefig(filename)
     plt.show()
 
+def box_whisker_plots_grid(state, chamber, ensemble_list, score_list, filename=None, cols=2):
+    """
+    For the given state and chamber, this plots one box plot per score across all ensembles.
+    Plots are arranged in a grid with a configurable number of columns.
+    
+    Parameters:
+        state (str): The state name.
+        chamber (str): The chamber name.
+        ensemble_list (list of str): List of ensemble names.
+        score_list (list of str): List of scores to plot.
+        filename (str, optional): If provided, saves the plot to this file.
+        cols (int): Number of columns in the subplot grid.
+    """
+    num_scores = len(score_list)
+    rows = math.ceil(num_scores / cols)
+
+    fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 3 * rows))
+    axes = axes.flatten() if num_scores > 1 else [axes]  # Make sure axes is always iterable
+
+    for idx, score in enumerate(score_list):
+        data = pd.DataFrame(columns=['ensemble', 'score'])
+        for ensemble in ensemble_list:
+            a = fetch_score_array(state, chamber, ensemble, score)
+            data_for_a = pd.DataFrame({'ensemble': [ensemble] * len(a), 'score': a})
+            data = pd.concat([data, data_for_a], ignore_index=True)
+        
+        sns.boxplot(data=data, x='ensemble', y='score', hue='ensemble', fliersize=0, ax=axes[idx])
+        axes[idx].set_title(f"{score}")
+        axes[idx].set_xlabel(None)
+        axes[idx].set_ylabel(None)
+        axes[idx].tick_params(axis='x', rotation=45)
+        axes[idx].grid(axis='y')
+
+    # Hide any unused axes
+    for j in range(len(score_list), len(axes)):
+        fig.delaxes(axes[j])
+
+    # Add a single centered title for the whole grid
+    #plt.tight_layout()
+    fig.suptitle(f"{state} {chamber}: Boxplots of scores by Ensemble Type", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Leave space for the suptitle
+
+    if filename is not None:
+        plt.savefig(filename)
+    plt.show()
+
 def ordered_seats_plot(state, chamber, ensemble_list, competitive_window = .05, filename = None):
     """
     For the given state and chamber, this superimposes ordered-seats-plots for the two ensembles in ensemble_list.
@@ -262,3 +330,33 @@ def ordered_seats_plot(state, chamber, ensemble_list, competitive_window = .05, 
     if filename is not None:
         plt.savefig(filename)
     plt.show()
+
+
+# Correlation table function
+def correlation_table(state, chamber, my_ensemble_list=ensemble_list, my_score_list=primary_score_list, 
+                      step_size=1, rounding=None, return_dataframe=False):
+    '''
+    Returns a correlation table for the scores in my_score_list over the ensembles in my_ensemble_list.
+    Set step_size to 1 to use all the plans, or a larger number to subsample the data (to use less memory).
+    Optionally returns the dataframe used to create the correlation table.
+    '''
+    all_rows = []
+
+    for ensemble in my_ensemble_list:
+        score_arrays = {
+            score: fetch_score_array(state, chamber, ensemble, score)[::step_size]
+            for score in my_score_list
+        }
+        num_plans = len(next(iter(score_arrays.values())))
+        for i in range(num_plans):
+            row = [score_arrays[score][i] for score in my_score_list] + [ensemble]
+            all_rows.append(row)
+
+    df = pd.DataFrame(all_rows, columns=my_score_list + ['ensemble'])
+
+    corr = df.corr(numeric_only=True)
+    if rounding is not None:
+        corr = corr.round(rounding)
+
+    return (corr, df) if return_dataframe else corr
+
