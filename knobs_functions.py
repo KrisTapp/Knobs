@@ -20,7 +20,7 @@ state_chamber_list = [(state, chamber) for state in state_list for chamber in ['
 base_list = ['base0', 'base1', 'base2', 'base3', 'base4']
 ensemble_list = ['pop_minus', 'pop_plus', 'distpair','ust', 'distpair_ust', 'reversible', 'county25', 'county50', 'county75', 'county100']
 
-#convert into LaTex notation in our paper
+#convert into LaTex notation for tables in our paper
 ensemble_name_dict = {
 'base0': '$\RA_0$',
 'base1': '$\RA_1$',
@@ -38,7 +38,25 @@ ensemble_name_dict = {
 'county75':'$\CCC$',
 'county100': '$\CCCC$'  
 }
-reverse_ensemble_name_dict = {v: k for k, v in ensemble_name_dict.items()}
+
+# convert to names compatable with Matplotlib
+ensemble_name_dict_for_plots = {
+'base0': r'$A_0$',
+'base1': r'$A_1$',
+'base2': r'$A_2$',
+'base3': r'$A_3$',
+'base4': r'$A_4$',
+'pop_minus': r'$Pop_{-}$',
+'pop_plus': r'$Pop_{+}$',
+'ust': r'$C$',
+'distpair': r'$B$',
+'distpair_ust': r'$D$',
+'reversible': r'RevReCom',
+'county25': r'$R_{25}$',
+'county50': r'$R_{50}$',
+'county75':r'$R_{75}$',
+'county100': r'$R_{100}$'  
+}
 
 num_seats_dict = {
     ('FL', 'congress'): 28,
@@ -204,6 +222,7 @@ def gelman_rubin_rhat(a1, a2):
 
     return R_hat
 
+
 # visualization functions
 
 def kde_plot(state, chamber, ensemble_list, score, average_lines = True, filename = None): # kde plot of any given list of ensembles
@@ -220,7 +239,7 @@ def kde_plot(state, chamber, ensemble_list, score, average_lines = True, filenam
     plt.title(f'{state} {chamber} {score}')
     plt.xlabel(score)
     plt.ylabel('Density')
-    plt.legend()
+    plt.legend(title='Ensemble', labels=[ensemble_name_dict_for_plots[ensemble] for ensemble in ensemble_list])
     if filename is not None:
         plt.savefig(filename)
     plt.show()
@@ -234,12 +253,16 @@ def box_whisker_plot(state, chamber, ensemble_list, score, filename = None): # b
         a = fetch_score_array(state, chamber, ensemble, score)
         data_for_a = pd.DataFrame({'ensemble': [ensemble] * len(a), 'score': a})
         data = pd.concat([data, data_for_a], ignore_index=True)
-    sns.boxplot(data=data, x='ensemble', y='score', hue='ensemble', fliersize = 0)
-    plt.title(f"{state} {chamber}: {score} boxplots by ensemble type")
-    plt.xlabel("Ensemble")
-    plt.ylabel(score)
-    plt.xticks(rotation=45)
-    plt.grid(axis='y')
+    ax = sns.boxplot(data=data, x='ensemble', y='score', hue='ensemble', fliersize = 0)
+    ax.set_title(f"{state} {chamber}: {score} boxplots by ensemble type")
+    ax.set_xlabel("Ensemble")
+    ax.set_ylabel(score)
+    # Set LaTeX labels for each tick on the x-axis
+    ax.set_xticklabels(
+        [ensemble_name_dict_for_plots[ensemble] for ensemble in ensemble_list],
+        rotation=45
+    )
+    ax.grid(axis='y')
     plt.tight_layout()
 
     if filename is not None:
@@ -272,12 +295,16 @@ def box_whisker_plots_grid(state, chamber, ensemble_list, score_list, filename=N
             data_for_a = pd.DataFrame({'ensemble': [ensemble] * len(a), 'score': a})
             data = pd.concat([data, data_for_a], ignore_index=True)
         
-        sns.boxplot(data=data, x='ensemble', y='score', hue='ensemble', fliersize=0, ax=axes[idx])
-        axes[idx].set_title(f"{score}")
-        axes[idx].set_xlabel(None)
-        axes[idx].set_ylabel(None)
-        axes[idx].tick_params(axis='x', rotation=45)
-        axes[idx].grid(axis='y')
+        ax = axes[idx]
+        sns.boxplot(data=data, x='ensemble', y='score', hue='ensemble', fliersize=0, ax=ax)
+        ax.set_title(f"{score}")
+        ax.set_xlabel(None)
+        ax.set_ylabel(None)
+        ax.set_xticklabels(
+            [ensemble_name_dict_for_plots[ensemble] for ensemble in ensemble_list],
+            rotation=45
+        )
+        ax.grid(axis='y')
 
     # Hide any unused axes
     for j in range(len(score_list), len(axes)):
@@ -321,16 +348,57 @@ def ordered_seats_plot(state, chamber, ensemble_list, competitive_window = .05, 
                     medianprops=dict(color='black'), 
                     flierprops=dict(markerfacecolor='white', marker=''))
     plt.xticks(np.arange(1, X0.shape[1]+1), np.arange(1, X0.shape[1]+1))
-    plt.axhline(y=0.5, color='red', linestyle='--')
+    plt.axhline(y=0.5, color='red', linestyle='-')
+    if competitive_window == 1:
+        plt.axhline(y=0.45, color='red', linestyle='--')
+        plt.axhline(y=0.55, color='red', linestyle='--')
+    else:
+        plt.axhline(y=.5-competitive_window, color='red', linestyle='--')
+        plt.axhline(y=0.5+competitive_window, color='red', linestyle='--')
     plt.xlabel('Ordered Districts')
     plt.ylabel('Democrat Vote Share')
     plt.title(f'{state} {chamber}: Ordered Seats Plots for {ensemble_list[0]} and {ensemble_list[1]}')
     plt.legend([plt.Line2D([0], [0], color='lightblue', lw=4), plt.Line2D([0], [0], color='lightgreen', lw=4)],
-               [ensemble_list[0], ensemble_list[1]], loc='upper left')
+               [ensemble_name_dict_for_plots[ensemble_list[0]], ensemble_name_dict_for_plots[ensemble_list[1]]],
+                loc='upper left')
     if filename is not None:
         plt.savefig(filename)
     plt.show()
 
+def kde_jointplot(state, chamber, score1, score2, my_ensemble_list=ensemble_list, filename=None, step_size=1):
+    '''
+    Returns a KDE plot for the scores score1 and score2 over the ensembles in my_ensemble_list.
+    Increase step_size to use a subsample and hense speed up the plot.
+    '''
+    # Build the dataframe
+    all_rows = []
+    for ensemble in my_ensemble_list:
+        score_arrays = {
+            score: fetch_score_array(state, chamber, ensemble, score)[::step_size]
+            for score in [score1, score2]
+        }
+        num_plans = len(next(iter(score_arrays.values())))
+        for i in range(num_plans):
+            row = [score_arrays[score][i] for score in [score1, score2]] + [ensemble]
+            all_rows.append(row)
+    df = pd.DataFrame(all_rows, columns=[score1, score2, 'ensemble'])
+
+    # Create the KDE plot
+    ax = sns.kdeplot(df, x=score1, y=score2, hue='ensemble')
+    plt.title(f'KDE plot of {score1} vs {score2} for {state} {chamber} ensembles')
+
+    # Fix the legend labels by modifying the existing legend
+    if ax.legend_:
+        legend = ax.legend_
+        handles = legend.legend_handles
+        labels = [t.get_text() for t in legend.get_texts()]
+        new_labels = [ensemble_name_dict_for_plots.get(label, label) for label in labels]
+
+        ax.legend(handles=handles, labels=new_labels, title='Ensemble', loc='lower right')
+
+    if filename:
+        plt.savefig(filename)
+    plt.show()
 
 # Correlation table function
 def correlation_table(state, chamber, my_ensemble_list=ensemble_list, my_score_list=primary_score_list, 
