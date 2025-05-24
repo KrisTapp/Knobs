@@ -106,7 +106,7 @@ primary_score_dict = {
     'Dem seats': "fptp_seats",
     'efficiency gap': "efficiency_gap_wasted_votes",
     'mean-median': "mean_median_average_district",
-    'partisan bias': "geometric_seats_bias", 
+    'seat bias': "geometric_seats_bias", 
     'competitive districts':  "competitive_district_count",
     'average margin': "average_margin", 
     'MMD black': "mmd_black",
@@ -225,24 +225,35 @@ def gelman_rubin_rhat(a1, a2):
 
 # visualization functions
 
-def kde_plot(state, chamber, ensemble_list, score, average_lines = True, filename = None): # kde plot of any given list of ensembles
+def kde_plot(state, chamber, ensemble_list, score, 
+             average_lines=True, filename=None, ax=None):
     """
-    For the given state, chamber, and score, this plots one KDE for each ensembles in ensemble_list.
+    For the given state, chamber, and score, this plots one KDE for each ensemble in ensemble_list.
     """
-    prop_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']  # Get the color cycle
+    created_ax = False
+    if ax is None:
+        fig, ax = plt.subplots()
+        created_ax = True
+
+    prop_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    
     for i, ensemble in enumerate(ensemble_list):
-        color = prop_cycle[i % len(prop_cycle)]  # Cycle through colors
+        color = prop_cycle[i % len(prop_cycle)]
         a = fetch_score_array(state, chamber, ensemble, score)
-        sns.kdeplot(a, label=ensemble, color=color)
+        sns.kdeplot(a, label=ensemble_name_dict_for_plots[ensemble], color=color, ax=ax)
         if average_lines:
-            plt.axvline(np.mean(a), linestyle='--', color=color)
-    plt.title(f'{state} {chamber} {score}')
-    plt.xlabel(score)
-    plt.ylabel('Density')
-    plt.legend(title='Ensemble', labels=[ensemble_name_dict_for_plots[ensemble] for ensemble in ensemble_list])
+            ax.axvline(np.mean(a), linestyle='--', color=color)
+
+    ax.set_title(f'{state} {chamber}: {score}')
+    ax.set_xlabel(score)
+    ax.set_ylabel('Density')
+    ax.legend(title='Ensemble')
+
     if filename is not None:
         plt.savefig(filename)
-    plt.show()
+
+    if created_ax:
+        plt.show()
 
 def box_whisker_plot(state, chamber, ensemble_list, score, filename = None): # box plot of any given list of ensembles
     """
@@ -357,14 +368,13 @@ def ordered_seats_plot(state, chamber, ensemble_list, competitive_window = .05, 
         plt.axhline(y=0.5+competitive_window, color='red', linestyle='--')
     plt.xlabel('Ordered Districts')
     plt.ylabel('Democrat Vote Share')
-    plt.title(f'{state} {chamber}: Ordered Seats Plots for {ensemble_list[0]} and {ensemble_list[1]}')
+    plt.title(f'{state} {chamber}: Ordered Seats Plots for {ensemble_name_dict_for_plots[ensemble_list[0]]} and {ensemble_name_dict_for_plots[ensemble_list[1]]}')
     plt.legend([plt.Line2D([0], [0], color='lightblue', lw=4), plt.Line2D([0], [0], color='lightgreen', lw=4)],
                [ensemble_name_dict_for_plots[ensemble_list[0]], ensemble_name_dict_for_plots[ensemble_list[1]]],
                 loc='upper left')
     if filename is not None:
         plt.savefig(filename)
     plt.show()
-
 def kde_jointplot(state, chamber, score1, score2, my_ensemble_list=ensemble_list, filename=None, step_size=1):
     '''
     Returns a KDE plot for the scores score1 and score2 over the ensembles in my_ensemble_list.
