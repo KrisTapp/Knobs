@@ -9,6 +9,8 @@ from itertools import combinations
 import json
 import math
 
+from fetch import *
+
 # Code to fetch the score array for a given state, chamber, ensemble_type and score.
 # and also creates the lists of ensemble types, score, and state-chamber combinations.
 
@@ -37,45 +39,43 @@ ensemble_list = [
     "county100",
 ]
 
-# TODO - Commented this out
-# # convert into LaTex notation for tables in our paper
-# ensemble_name_dict = {
-#     "base0": "$\RA_0$",
-#     "base1": "$\RA_1$",
-#     "base2": "$\RA_2$",
-#     "base3": "$\RA_3$",
-#     "base4": "$\RA_4$",
-#     "pop_minus": "$\popm$",
-#     "pop_plus": "$\popp$",
-#     "ust": "$\RC$",
-#     "distpair": "$\RB$",
-#     "distpair_ust": "$\RD$",
-#     "reversible": r"\makecell{Rev \\ ReCom}",
-#     "county25": "$\C$",
-#     "county50": "$\CC$",
-#     "county75": "$\CCC$",
-#     "county100": "$\CCCC$",
-# }
+# convert into LaTex notation for tables in our paper
+ensemble_name_dict = {
+    "base0": "$\RA_0$",
+    "base1": "$\RA_1$",
+    "base2": "$\RA_2$",
+    "base3": "$\RA_3$",
+    "base4": "$\RA_4$",
+    "pop_minus": "$\popm$",
+    "pop_plus": "$\popp$",
+    "ust": "$\RC$",
+    "distpair": "$\RB$",
+    "distpair_ust": "$\RD$",
+    "reversible": r"\makecell{Rev \\ ReCom}",
+    "county25": "$\C$",
+    "county50": "$\CC$",
+    "county75": "$\CCC$",
+    "county100": "$\CCCC$",
+}
 
-# TODO - Commented this out
-# # convert to names compatable with Matplotlib
-# ensemble_name_dict_for_plots = {
-#     "base0": r"$A_0$",
-#     "base1": r"$A_1$",
-#     "base2": r"$A_2$",
-#     "base3": r"$A_3$",
-#     "base4": r"$A_4$",
-#     "pop_minus": r"$Pop_{-}$",
-#     "pop_plus": r"$Pop_{+}$",
-#     "ust": r"$C$",
-#     "distpair": r"$B$",
-#     "distpair_ust": r"$D$",
-#     "reversible": r"RevReCom",
-#     "county25": r"$R_{25}$",
-#     "county50": r"$R_{50}$",
-#     "county75": r"$R_{75}$",
-#     "county100": r"$R_{100}$",
-# }
+# convert to names compatable with Matplotlib
+ensemble_name_dict_for_plots = {
+    "base0": r"$A_0$",
+    "base1": r"$A_1$",
+    "base2": r"$A_2$",
+    "base3": r"$A_3$",
+    "base4": r"$A_4$",
+    "pop_minus": r"$Pop_{-}$",
+    "pop_plus": r"$Pop_{+}$",
+    "ust": r"$C$",
+    "distpair": r"$B$",
+    "distpair_ust": r"$D$",
+    "reversible": r"RevReCom",
+    "county25": r"$R_{25}$",
+    "county50": r"$R_{50}$",
+    "county75": r"$R_{75}$",
+    "county100": r"$R_{100}$",
+}
 
 # TODO - Commented this out
 # num_seats_dict = {
