@@ -77,15 +77,15 @@ _score_mapping: Dict[str, str] = {
     "Dem seats": "fptp_seats",
     "efficiency gap": "efficiency_gap_wasted_votes",
     "mean-median": "mean_median_average_district",
-    "seat bias": "geometric_seats_bias",  # TODO - Is this correct?
-    "partisan bias": "geometric_seats_bias",  # TODO - Is this correct?
+    "seat bias": "geometric_seats_bias",
+    # "partisan bias": "geometric_seats_bias",
     "competitive districts": "competitive_district_count",
     "average margin": "average_margin",
     "MMD black": "mmd_black",
     "MMD hispanic": "mmd_hispanic",
-    "mmd_black": "mmd_black",  # TODO - Is this necessary?
-    "mmd_hispanic": "mmd_hispanic",  # TODO - Is this necessary?
-    "mmd_coalition": "mmd_coalition",  # TODO - Is this necessary?
+    # "mmd_black": "mmd_black",
+    # "mmd_hispanic": "mmd_hispanic",
+    # "mmd_coalition": "mmd_coalition",
     "county splits": "county_splits",
     "counties split": "counties_split",
     # Extend this mapping, to support more scores
