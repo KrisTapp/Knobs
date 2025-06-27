@@ -1,0 +1,16 @@
+fiona
+geographiclib
+geopandas
+libpysal
+matplotlib
+networkx
+nptyping
+numpy
+pandas
+pyarrow
+rdapy
+scikit-learn
+scipy
+seaborn
+shapely
+ipykernel
