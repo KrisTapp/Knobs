@@ -1,0 +1,2 @@
+# Folder of code to create redundancy data
+This folder contains the code that was used to create the files redundancy_for_reversible.jsonl and redundancy_for_rest.jsonl.  These files contain on line for each ensemble.  An ensembles line includes information about the repetition of districts within that ensemble.
